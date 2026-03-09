@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Create high-quality rendered screenshots from 3D models in your browser" />
+    <title>Beautifully Shadow</title>
+  </head>
+  <body class="bg-neutral-950 text-neutral-100 h-screen overflow-hidden select-none">
+    <div id="app" class="flex flex-col h-full">
+
+      <!-- Header -->
+      <header class="flex items-center justify-between px-5 py-3 border-b border-neutral-800 shrink-0">
+        <h1 class="text-lg font-semibold tracking-tight">Beautifully Shadow</h1>
+        <span id="file-name" class="text-sm text-neutral-500 truncate max-w-[200px]"></span>
+      </header>
+
+      <!-- Main content -->
+      <div class="flex flex-1 min-h-0">
+
+        <!-- Viewer area -->
+        <main class="relative flex-1 min-w-0">
+          <!-- Drop zone overlay -->
+          <div id="drop-overlay" class="absolute inset-0 z-20 hidden items-center justify-center bg-neutral-950/80 border-2 border-dashed border-blue-500 rounded-lg m-2 pointer-events-none">
+            <div class="text-center">
+              <svg class="mx-auto mb-2 w-12 h-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16" /></svg>
+              <p class="text-blue-300 text-lg font-medium">Drop GLB file here</p>
+            </div>
+          </div>
+
+          <!-- Empty state -->
+          <div id="empty-state" class="absolute inset-0 z-10 flex flex-col items-center justify-center text-neutral-500">
+            <svg class="mb-4 w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+            <p class="text-lg mb-1">No model loaded</p>
+            <p class="text-sm">Drag &amp; drop a GLB file or use the panel to load one</p>
+          </div>
+
+          <!-- 3D Viewer -->
+          <model-viewer
+            id="viewer"
+            class="w-full h-full"
+            camera-controls
+            touch-action="pan-y"
+            shadow-intensity="1"
+            shadow-softness="0.8"
+            exposure="1"
+            interaction-prompt="none"
+            style="background-color: transparent;"
+          ></model-viewer>
+        </main>
+
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-72 shrink-0 border-l border-neutral-800 overflow-y-auto flex flex-col gap-0">
+
+          <!-- File section -->
+          <section class="p-4 border-b border-neutral-800">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">Model</h2>
+            <label class="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg cursor-pointer transition-colors text-sm font-medium">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+              Load GLB File
+              <input id="file-input" type="file" accept=".glb" class="hidden" />
+            </label>
+          </section>
+
+          <!-- Resolution section -->
+          <section class="p-4 border-b border-neutral-800">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">Resolution</h2>
+            <select id="preset-select" class="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-blue-500">
+              <option value="1280x720">720p (1280 × 720)</option>
+              <option value="1920x1080" selected>1080p (1920 × 1080)</option>
+              <option value="2560x1440">1440p (2560 × 1440)</option>
+              <option value="3840x2160">4K (3840 × 2160)</option>
+              <option value="custom">Custom</option>
+            </select>
+            <div class="flex gap-2">
+              <div class="flex-1">
+                <label class="text-xs text-neutral-500 mb-1 block">Width</label>
+                <input id="width-input" type="number" value="1920" min="1" max="8192" class="w-full px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div class="flex-1">
+                <label class="text-xs text-neutral-500 mb-1 block">Height</label>
+                <input id="height-input" type="number" value="1080" min="1" max="8192" class="w-full px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              </div>
+            </div>
+          </section>
+
+          <!-- Background section -->
+          <section class="p-4 border-b border-neutral-800">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">Background</h2>
+            <label class="flex items-center justify-between cursor-pointer">
+              <span class="text-sm">Transparent</span>
+              <div class="relative">
+                <input id="transparent-toggle" type="checkbox" checked class="sr-only peer" />
+                <div class="w-9 h-5 bg-neutral-700 rounded-full peer-checked:bg-blue-600 transition-colors"></div>
+                <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-4 transition-transform"></div>
+              </div>
+            </label>
+          </section>
+
+          <!-- Format section -->
+          <section class="p-4 border-b border-neutral-800">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">Format</h2>
+            <div class="flex gap-2 mb-3">
+              <label class="flex-1">
+                <input type="radio" name="format" value="image/png" checked class="sr-only peer" />
+                <div class="text-center py-2 px-3 bg-neutral-800 border border-neutral-700 rounded-lg text-sm cursor-pointer peer-checked:border-blue-500 peer-checked:bg-blue-500/10 peer-checked:text-blue-400 transition-colors">PNG</div>
+              </label>
+              <label class="flex-1">
+                <input type="radio" name="format" value="image/jpeg" class="sr-only peer" />
+                <div class="text-center py-2 px-3 bg-neutral-800 border border-neutral-700 rounded-lg text-sm cursor-pointer peer-checked:border-blue-500 peer-checked:bg-blue-500/10 peer-checked:text-blue-400 transition-colors">JPEG</div>
+              </label>
+            </div>
+            <div id="quality-group" class="hidden">
+              <label class="flex items-center justify-between text-sm mb-1">
+                <span class="text-neutral-400">Quality</span>
+                <span id="quality-value" class="text-neutral-300 tabular-nums">92%</span>
+              </label>
+              <input id="quality-slider" type="range" min="10" max="100" value="92" class="w-full accent-blue-500" />
+            </div>
+          </section>
+
+          <!-- Download -->
+          <section class="p-4 mt-auto">
+            <button id="download-btn" disabled class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-600 disabled:cursor-not-allowed rounded-lg text-sm font-semibold transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4" /></svg>
+              <span id="download-text">Download Screenshot</span>
+            </button>
+          </section>
+
+        </aside>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
