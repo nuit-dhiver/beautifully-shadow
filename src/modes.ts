@@ -122,6 +122,22 @@ function restoreViewerShadow(): void {
   storedShadowIntensity = null;
 }
 
+// ── Render kick ────────────────────────────────────────────────────────────
+
+/** Tell model-viewer to repaint after we modify the Three.js scene directly. */
+function requestRender(): void {
+  const mv = getModelViewer() as unknown as object;
+  // The $scene symbol is an instance property (found via getOwnPropertySymbols).
+  // Call queueRender() on the ModelScene to flag it dirty for the next frame.
+  for (const sym of Object.getOwnPropertySymbols(mv)) {
+    if (sym.description === "scene") {
+      const modelScene = (mv as Record<symbol, { queueRender: () => void }>)[sym];
+      modelScene?.queueRender();
+      return;
+    }
+  }
+}
+
 // ── Mode application ───────────────────────────────────────────────────────
 
 function applyMatcap(): void {
@@ -146,6 +162,8 @@ function applyMatcap(): void {
     n.castShadow = false;
     n.receiveShadow = false;
   });
+
+  requestRender();
 }
 
 function applyMesh(): void {
@@ -171,6 +189,8 @@ function applyMesh(): void {
     n.castShadow = false;
     n.receiveShadow = false;
   });
+
+  requestRender();
 }
 
 function restoreDefault(): void {
@@ -191,6 +211,8 @@ function restoreDefault(): void {
       storedMeshState.delete(n);
     }
   });
+
+  requestRender();
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
