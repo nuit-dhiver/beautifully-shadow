@@ -7,7 +7,7 @@
  * so no internal module imports are needed.
  */
 
-import { CanvasTexture, MeshBasicMaterial, MeshMatcapMaterial } from "three";
+import { CanvasTexture, Color, MeshBasicMaterial, MeshMatcapMaterial } from "three";
 import { getModelViewer, hasModelLoaded } from "./viewer";
 
 export type ViewMode = "default" | "matcap" | "mesh";
@@ -44,9 +44,13 @@ function getThreeScene(): { traverse: (cb: (node: unknown) => void) => void } | 
 // ── Matcap texture ─────────────────────────────────────────────────────────
 
 let cachedMatcapTexture: CanvasTexture | null = null;
+let cachedMatcapHex: string = "";
 
-function buildMatcapTexture(): CanvasTexture {
-  if (cachedMatcapTexture) return cachedMatcapTexture;
+function buildMatcapTexture(hex: string): CanvasTexture {
+  if (cachedMatcapTexture && cachedMatcapHex === hex) return cachedMatcapTexture;
+
+  const col = new Color(hex);
+  const r = col.r, g = col.g, b = col.b;
 
   const size = 256;
   const canvas = document.createElement("canvas");
@@ -54,22 +58,29 @@ function buildMatcapTexture(): CanvasTexture {
   canvas.height = size;
   const ctx = canvas.getContext("2d")!;
 
-  // Dark outer ring
-  ctx.fillStyle = "#0a0a0a";
+  // Dark outer ring — tinted to match the colour
+  const darkR = Math.round(r * 10), darkG = Math.round(g * 10), darkB = Math.round(b * 10);
+  ctx.fillStyle = `rgb(${darkR},${darkG},${darkB})`;
   ctx.beginPath();
   ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
   ctx.fill();
 
-  // Main radial gradient — upper-left highlight, lower-right shadow
+  // Main radial gradient — upper-left highlight, lower-right shadow, tinted
   const grad = ctx.createRadialGradient(
     size * 0.36, size * 0.32, size * 0.02,
     size * 0.5,  size * 0.5,  size * 0.52,
   );
-  grad.addColorStop(0,    "#f2f2f2");
-  grad.addColorStop(0.18, "#dedede");
-  grad.addColorStop(0.5,  "#909090");
-  grad.addColorStop(0.78, "#3c3c3c");
-  grad.addColorStop(1,    "#0a0a0a");
+
+  const stop = (t: number): string => {
+    const v = Math.round(t * 255);
+    return `rgb(${Math.round(v * r)},${Math.round(v * g)},${Math.round(v * b)})`;
+  };
+
+  grad.addColorStop(0,    stop(0.95));
+  grad.addColorStop(0.18, stop(0.87));
+  grad.addColorStop(0.5,  stop(0.56));
+  grad.addColorStop(0.78, stop(0.24));
+  grad.addColorStop(1,    stop(0.04));
 
   ctx.fillStyle = grad;
   ctx.beginPath();
@@ -77,7 +88,22 @@ function buildMatcapTexture(): CanvasTexture {
   ctx.fill();
 
   cachedMatcapTexture = new CanvasTexture(canvas);
+  cachedMatcapHex = hex;
   return cachedMatcapTexture;
+}
+
+// ── Settings readers ───────────────────────────────────────────────────────
+
+function getMatcapColor(): string {
+  return (document.getElementById("matcap-color") as HTMLInputElement).value;
+}
+
+function getMatcapFlatShading(): boolean {
+  return (document.getElementById("matcap-flat-shading") as HTMLInputElement).checked;
+}
+
+function getMeshColor(): string {
+  return (document.getElementById("mesh-color") as HTMLInputElement).value;
 }
 
 // ── Shadow management ──────────────────────────────────────────────────────
@@ -103,16 +129,19 @@ function applyMatcap(): void {
   if (!scene) return;
 
   disableViewerShadow();
-  const matcap = buildMatcapTexture();
+  const matcap = buildMatcapTexture(getMatcapColor());
+  const flatShading = getMatcapFlatShading();
 
   scene.traverse((node) => {
     const n = node as { isMesh?: boolean; material?: unknown; castShadow: boolean; receiveShadow: boolean };
     if (!n.isMesh || n.material == null) return;
 
-    storedMeshState.set(n, { material: n.material, castShadow: n.castShadow, receiveShadow: n.receiveShadow });
+    if (!storedMeshState.has(n)) {
+      storedMeshState.set(n, { material: n.material, castShadow: n.castShadow, receiveShadow: n.receiveShadow });
+    }
 
     const mats = Array.isArray(n.material) ? n.material : [n.material];
-    const replacements = mats.map(() => new MeshMatcapMaterial({ matcap }));
+    const replacements = mats.map(() => new MeshMatcapMaterial({ matcap, flatShading }));
     n.material = Array.isArray(n.material) ? replacements : replacements[0];
     n.castShadow = false;
     n.receiveShadow = false;
@@ -124,16 +153,19 @@ function applyMesh(): void {
   if (!scene) return;
 
   disableViewerShadow();
+  const color = getMeshColor();
 
   scene.traverse((node) => {
     const n = node as { isMesh?: boolean; material?: unknown; castShadow: boolean; receiveShadow: boolean };
     if (!n.isMesh || n.material == null) return;
 
-    storedMeshState.set(n, { material: n.material, castShadow: n.castShadow, receiveShadow: n.receiveShadow });
+    if (!storedMeshState.has(n)) {
+      storedMeshState.set(n, { material: n.material, castShadow: n.castShadow, receiveShadow: n.receiveShadow });
+    }
 
     const mats = Array.isArray(n.material) ? n.material : [n.material];
     const replacements = mats.map(
-      () => new MeshBasicMaterial({ color: 0x60a5fa, wireframe: true }),
+      () => new MeshBasicMaterial({ color, wireframe: true }),
     );
     n.material = Array.isArray(n.material) ? replacements : replacements[0];
     n.castShadow = false;
@@ -175,6 +207,21 @@ export function setViewMode(mode: ViewMode): void {
   else if (mode === "mesh") applyMesh();
 }
 
+/** Re-apply the current mode (used when settings change for live preview). */
+function reapplyCurrentMode(): void {
+  if (!hasModelLoaded() || currentMode === "default") return;
+
+  // Re-apply without restoring first — applyMatcap/applyMesh guard against
+  // double-storing originals via the has() check
+  if (currentMode === "matcap") {
+    // Invalidate texture cache so new colour takes effect
+    cachedMatcapTexture = null;
+    applyMatcap();
+  } else if (currentMode === "mesh") {
+    applyMesh();
+  }
+}
+
 export function getCurrentMode(): ViewMode {
   return currentMode;
 }
@@ -191,6 +238,10 @@ function syncModeButtons(active: ViewMode): void {
     btn.classList.toggle("bg-neutral-800",    !isActive);
     btn.classList.toggle("text-neutral-300",  !isActive);
   });
+
+  // Show/hide mode-specific settings panels
+  document.getElementById("matcap-settings")!.classList.toggle("hidden", active !== "matcap");
+  document.getElementById("mesh-settings")!.classList.toggle("hidden", active !== "mesh");
 }
 
 export function initModes(): void {
@@ -205,6 +256,7 @@ export function initModes(): void {
     syncModeButtons(mode);
   });
 
+  // Mode buttons
   document.querySelectorAll<HTMLButtonElement>("[data-view-mode]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const mode = btn.dataset.viewMode as ViewMode;
@@ -212,4 +264,11 @@ export function initModes(): void {
       syncModeButtons(mode);
     });
   });
+
+  // Matcap settings — live preview on change
+  document.getElementById("matcap-color")!.addEventListener("input", reapplyCurrentMode);
+  document.getElementById("matcap-flat-shading")!.addEventListener("change", reapplyCurrentMode);
+
+  // Mesh settings — live preview on change
+  document.getElementById("mesh-color")!.addEventListener("input", reapplyCurrentMode);
 }

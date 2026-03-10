@@ -115,6 +115,30 @@
                 Mesh
               </button>
             </div>
+
+            <!-- Matcap settings (shown when matcap mode is active) -->
+            <div id="matcap-settings" class="hidden mt-3 flex flex-col gap-3">
+              <div class="flex items-center justify-between">
+                <label for="matcap-color" class="text-sm text-neutral-400">Colour</label>
+                <input id="matcap-color" type="color" value="#ffffff" class="w-8 h-8 rounded cursor-pointer bg-transparent border border-neutral-700" />
+              </div>
+              <label class="flex items-center justify-between cursor-pointer">
+                <span class="text-sm text-neutral-400">Flat Shading</span>
+                <div class="relative">
+                  <input id="matcap-flat-shading" type="checkbox" class="sr-only peer" />
+                  <div class="w-9 h-5 bg-neutral-700 rounded-full peer-checked:bg-blue-600 transition-colors"></div>
+                  <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-4 transition-transform"></div>
+                </div>
+              </label>
+            </div>
+
+            <!-- Mesh settings (shown when mesh mode is active) -->
+            <div id="mesh-settings" class="hidden mt-3">
+              <div class="flex items-center justify-between">
+                <label for="mesh-color" class="text-sm text-neutral-400">Colour</label>
+                <input id="mesh-color" type="color" value="#60a5fa" class="w-8 h-8 rounded cursor-pointer bg-transparent border border-neutral-700" />
+              </div>
+            </div>
           </section>
 
           <!-- Format section -->
