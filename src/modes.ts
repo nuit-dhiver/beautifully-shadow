@@ -14,8 +14,14 @@ export type ViewMode = "default" | "matcap" | "mesh";
 
 let currentMode: ViewMode = "default";
 
-// mesh node (any) → original material(s) before override
-const storedMaterials = new Map<object, unknown>();
+interface StoredMeshState {
+  material: unknown;
+  castShadow: boolean;
+  receiveShadow: boolean;
+}
+
+// mesh node (any) → original state before override
+const storedMeshState = new Map<object, StoredMeshState>();
 
 // ── Three.js scene access ──────────────────────────────────────────────────
 
@@ -74,23 +80,42 @@ function buildMatcapTexture(): CanvasTexture {
   return cachedMatcapTexture;
 }
 
+// ── Shadow management ──────────────────────────────────────────────────────
+
+let storedShadowIntensity: string | null = null;
+
+function disableViewerShadow(): void {
+  const mv = getModelViewer() as Element;
+  storedShadowIntensity = mv.getAttribute("shadow-intensity");
+  mv.setAttribute("shadow-intensity", "0");
+}
+
+function restoreViewerShadow(): void {
+  const mv = getModelViewer() as Element;
+  mv.setAttribute("shadow-intensity", storedShadowIntensity ?? "0");
+  storedShadowIntensity = null;
+}
+
 // ── Mode application ───────────────────────────────────────────────────────
 
 function applyMatcap(): void {
   const scene = getThreeScene();
   if (!scene) return;
 
+  disableViewerShadow();
   const matcap = buildMatcapTexture();
 
   scene.traverse((node) => {
-    const n = node as { isMesh?: boolean; material?: unknown };
+    const n = node as { isMesh?: boolean; material?: unknown; castShadow: boolean; receiveShadow: boolean };
     if (!n.isMesh || n.material == null) return;
 
-    storedMaterials.set(n, n.material);
+    storedMeshState.set(n, { material: n.material, castShadow: n.castShadow, receiveShadow: n.receiveShadow });
 
     const mats = Array.isArray(n.material) ? n.material : [n.material];
     const replacements = mats.map(() => new MeshMatcapMaterial({ matcap }));
     n.material = Array.isArray(n.material) ? replacements : replacements[0];
+    n.castShadow = false;
+    n.receiveShadow = false;
   });
 }
 
@@ -98,17 +123,21 @@ function applyMesh(): void {
   const scene = getThreeScene();
   if (!scene) return;
 
+  disableViewerShadow();
+
   scene.traverse((node) => {
-    const n = node as { isMesh?: boolean; material?: unknown };
+    const n = node as { isMesh?: boolean; material?: unknown; castShadow: boolean; receiveShadow: boolean };
     if (!n.isMesh || n.material == null) return;
 
-    storedMaterials.set(n, n.material);
+    storedMeshState.set(n, { material: n.material, castShadow: n.castShadow, receiveShadow: n.receiveShadow });
 
     const mats = Array.isArray(n.material) ? n.material : [n.material];
     const replacements = mats.map(
       () => new MeshBasicMaterial({ color: 0x60a5fa, wireframe: true }),
     );
     n.material = Array.isArray(n.material) ? replacements : replacements[0];
+    n.castShadow = false;
+    n.receiveShadow = false;
   });
 }
 
@@ -116,14 +145,18 @@ function restoreDefault(): void {
   const scene = getThreeScene();
   if (!scene) return;
 
+  restoreViewerShadow();
+
   scene.traverse((node) => {
-    const n = node as { isMesh?: boolean; material?: unknown };
+    const n = node as { isMesh?: boolean; material?: unknown; castShadow: boolean; receiveShadow: boolean };
     if (!n.isMesh) return;
 
-    const orig = storedMaterials.get(n);
+    const orig = storedMeshState.get(n);
     if (orig !== undefined) {
-      n.material = orig;
-      storedMaterials.delete(n);
+      n.material = orig.material;
+      n.castShadow = orig.castShadow;
+      n.receiveShadow = orig.receiveShadow;
+      storedMeshState.delete(n);
     }
   });
 }
@@ -165,7 +198,7 @@ export function initModes(): void {
 
   // Re-apply current mode whenever a new model finishes loading
   viewer.addEventListener("load", () => {
-    storedMaterials.clear();
+    storedMeshState.clear();
     const mode = currentMode;
     currentMode = "default";
     setViewMode(mode);
