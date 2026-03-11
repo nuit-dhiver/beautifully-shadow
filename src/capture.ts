@@ -1,8 +1,14 @@
 /**
  * Screenshot capture: resize model-viewer to target resolution, capture via toBlob(), download.
+ *
+ * For non-transparent backgrounds (solid or gradient), the model is captured
+ * with a transparent background then composited onto a canvas with the
+ * background drawn first. This is necessary because model-viewer's toBlob()
+ * only captures the WebGL canvas — CSS backgrounds are not included.
  */
 
 import { getModelViewer, hasModelLoaded } from "./viewer";
+import type { CaptureSettings } from "./ui";
 import { getCaptureSettings } from "./ui";
 
 interface ModelViewerElement extends HTMLElement {
@@ -23,7 +29,6 @@ async function captureScreenshot(): Promise<void> {
   const btn = document.getElementById("download-btn") as HTMLButtonElement;
   const btnText = document.getElementById("download-text")!;
 
-  // Disable button during capture
   btn.disabled = true;
   btnText.textContent = "Capturing…";
 
@@ -34,58 +39,91 @@ async function captureScreenshot(): Promise<void> {
   const origZIndex = viewer.style.zIndex;
   const origOpacity = viewer.style.opacity;
   const origBg = viewer.style.backgroundColor;
+  const origBgImage = viewer.style.backgroundImage;
 
   try {
-    // Handle transparent background for capture
-    if (settings.transparent) {
-      viewer.style.backgroundColor = "transparent";
-    } else {
-      viewer.style.backgroundColor = "#ffffff";
-    }
+    const needsBg = !settings.transparent;
 
-    // Resize viewer to target resolution (off-screen technique: keep in DOM but make invisible)
+    // Resize viewer off-screen to target resolution
     viewer.style.position = "fixed";
     viewer.style.zIndex = "-9999";
     viewer.style.opacity = "0";
     viewer.style.width = `${settings.width}px`;
     viewer.style.height = `${settings.height}px`;
 
-    // Wait for model-viewer to re-render at new size
+    // Always capture with transparent WebGL background;
+    // backgrounds are composited onto a canvas afterwards
+    viewer.style.backgroundColor = "transparent";
+    viewer.style.backgroundImage = "";
+
     await viewer.updateComplete;
-    // Extra frame to ensure WebGL render completes
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-    // Capture
     const blob = await viewer.toBlob({
-      mimeType: settings.mimeType,
-      qualityArgument: settings.mimeType === "image/jpeg" ? settings.quality : undefined,
-      idealAspect: true,
+      mimeType: needsBg ? "image/png" : settings.mimeType,
+      qualityArgument: !needsBg && settings.mimeType === "image/jpeg" ? settings.quality : undefined,
+      idealAspect: false,
     });
 
-    // Download
     const ext = settings.mimeType === "image/jpeg" ? "jpg" : "png";
     const filename = `screenshot-${settings.width}x${settings.height}.${ext}`;
-    downloadBlob(blob, filename);
+
+    if (needsBg) {
+      const composited = await compositeBackground(blob, settings);
+      downloadBlob(composited, filename);
+    } else {
+      downloadBlob(blob, filename);
+    }
   } finally {
-    // Restore original styles
     viewer.style.width = origWidth;
     viewer.style.height = origHeight;
     viewer.style.position = origPosition;
     viewer.style.zIndex = origZIndex;
     viewer.style.opacity = origOpacity;
     viewer.style.backgroundColor = origBg;
-
-    // Restore transparent mode if it was on
-    const transparentEl = document.getElementById("transparent-toggle") as HTMLInputElement;
-    if (transparentEl.checked) {
-      viewer.style.backgroundColor = "transparent";
-    }
+    viewer.style.backgroundImage = origBgImage;
 
     await viewer.updateComplete;
 
     btn.disabled = false;
     btnText.textContent = "Download Screenshot";
   }
+}
+
+async function compositeBackground(
+  modelBlob: Blob,
+  settings: CaptureSettings,
+): Promise<Blob> {
+  const { width, height } = settings;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d")!;
+
+  // Draw background
+  if (settings.bgType === "gradient") {
+    const grad = settings.bgGradientDir === "vertical"
+      ? ctx.createLinearGradient(0, 0, 0, height)
+      : ctx.createLinearGradient(0, 0, width, 0);
+    grad.addColorStop(0, settings.bgColorFrom);
+    grad.addColorStop(1, settings.bgColorTo);
+    ctx.fillStyle = grad;
+  } else {
+    ctx.fillStyle = settings.bgColor;
+  }
+  ctx.fillRect(0, 0, width, height);
+
+  // Draw model on top — blob matches the requested dimensions exactly
+  const img = await createImageBitmap(modelBlob);
+  ctx.drawImage(img, 0, 0, width, height);
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))),
+      settings.mimeType,
+      settings.mimeType === "image/jpeg" ? settings.quality : undefined,
+    );
+  });
 }
 
 function downloadBlob(blob: Blob, filename: string) {
