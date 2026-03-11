@@ -96,6 +96,47 @@
                 <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-4 transition-transform"></div>
               </div>
             </label>
+
+            <!-- Background controls (shown when transparent is OFF) -->
+            <div id="bg-controls" class="hidden mt-3 flex flex-col gap-3">
+              <!-- Solid / Gradient type picker -->
+              <div class="flex gap-2">
+                <label class="flex-1">
+                  <input type="radio" name="bg-type" value="solid" checked class="sr-only peer" />
+                  <div class="text-center py-2 px-3 bg-neutral-800 border border-neutral-700 rounded-lg text-sm cursor-pointer peer-checked:border-blue-500 peer-checked:bg-blue-500/10 peer-checked:text-blue-400 transition-colors">Solid</div>
+                </label>
+                <label class="flex-1">
+                  <input type="radio" name="bg-type" value="gradient" class="sr-only peer" />
+                  <div class="text-center py-2 px-3 bg-neutral-800 border border-neutral-700 rounded-lg text-sm cursor-pointer peer-checked:border-blue-500 peer-checked:bg-blue-500/10 peer-checked:text-blue-400 transition-colors">Gradient</div>
+                </label>
+              </div>
+              <!-- Solid colour -->
+              <div id="bg-solid-controls" class="flex items-center justify-between">
+                <label for="bg-color" class="text-sm text-neutral-400">Colour</label>
+                <input id="bg-color" type="color" value="#ffffff" class="w-8 h-8 rounded cursor-pointer bg-transparent border border-neutral-700" />
+              </div>
+              <!-- Gradient colours (hidden by default) -->
+              <div id="bg-gradient-controls" class="hidden flex flex-col gap-2">
+                <div class="flex gap-2">
+                  <label class="flex-1">
+                    <input type="radio" name="bg-gradient-dir" value="horizontal" checked class="sr-only peer" />
+                    <div class="text-center py-1.5 px-2 bg-neutral-800 border border-neutral-700 rounded-lg text-xs cursor-pointer peer-checked:border-blue-500 peer-checked:bg-blue-500/10 peer-checked:text-blue-400 transition-colors">Horizontal</div>
+                  </label>
+                  <label class="flex-1">
+                    <input type="radio" name="bg-gradient-dir" value="vertical" class="sr-only peer" />
+                    <div class="text-center py-1.5 px-2 bg-neutral-800 border border-neutral-700 rounded-lg text-xs cursor-pointer peer-checked:border-blue-500 peer-checked:bg-blue-500/10 peer-checked:text-blue-400 transition-colors">Vertical</div>
+                  </label>
+                </div>
+                <div class="flex items-center justify-between">
+                  <label for="bg-color-from" class="text-sm text-neutral-400">From</label>
+                  <input id="bg-color-from" type="color" value="#1e3a5f" class="w-8 h-8 rounded cursor-pointer bg-transparent border border-neutral-700" />
+                </div>
+                <div class="flex items-center justify-between">
+                  <label for="bg-color-to" class="text-sm text-neutral-400">To</label>
+                  <input id="bg-color-to" type="color" value="#0f172a" class="w-8 h-8 rounded cursor-pointer bg-transparent border border-neutral-700" />
+                </div>
+              </div>
+            </div>
           </section>
 
           <!-- View Mode section -->

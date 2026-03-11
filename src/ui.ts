@@ -1,5 +1,6 @@
 /**
- * UI state management: resolution presets, format selection, quality slider, transparency toggle.
+ * UI state management: resolution presets, format selection, quality slider, transparency toggle,
+ * background type and colour controls.
  */
 
 export interface CaptureSettings {
@@ -8,6 +9,11 @@ export interface CaptureSettings {
   mimeType: "image/png" | "image/jpeg";
   quality: number;
   transparent: boolean;
+  bgType: "solid" | "gradient";
+  bgGradientDir: "horizontal" | "vertical";
+  bgColor: string;
+  bgColorFrom: string;
+  bgColorTo: string;
 }
 
 const presets: Record<string, [number, number]> = {
@@ -23,6 +29,11 @@ export function getCaptureSettings(): CaptureSettings {
   const formatEl = document.querySelector<HTMLInputElement>('input[name="format"]:checked');
   const qualityEl = document.getElementById("quality-slider") as HTMLInputElement;
   const transparentEl = document.getElementById("transparent-toggle") as HTMLInputElement;
+  const bgTypeEl = document.querySelector<HTMLInputElement>('input[name="bg-type"]:checked');
+  const bgGradientDirEl = document.querySelector<HTMLInputElement>('input[name="bg-gradient-dir"]:checked');
+  const bgColorEl = document.getElementById("bg-color") as HTMLInputElement;
+  const bgColorFromEl = document.getElementById("bg-color-from") as HTMLInputElement;
+  const bgColorToEl = document.getElementById("bg-color-to") as HTMLInputElement;
 
   return {
     width: Math.max(1, Math.min(8192, parseInt(w.value, 10) || 1920)),
@@ -30,6 +41,11 @@ export function getCaptureSettings(): CaptureSettings {
     mimeType: (formatEl?.value as CaptureSettings["mimeType"]) ?? "image/png",
     quality: parseInt(qualityEl.value, 10) / 100,
     transparent: transparentEl.checked,
+    bgType: (bgTypeEl?.value as CaptureSettings["bgType"]) ?? "solid",
+    bgGradientDir: (bgGradientDirEl?.value as CaptureSettings["bgGradientDir"]) ?? "horizontal",
+    bgColor: bgColorEl.value,
+    bgColorFrom: bgColorFromEl.value,
+    bgColorTo: bgColorToEl.value,
   };
 }
 
@@ -82,18 +98,63 @@ function initQualitySlider() {
   });
 }
 
+/** Applies the current background settings to the live viewer element. */
+function applyBgPreview(): void {
+  const viewer = document.getElementById("viewer")!;
+  const settings = getCaptureSettings();
+
+  if (settings.transparent) {
+    viewer.classList.add("transparent-bg");
+    viewer.style.backgroundColor = "transparent";
+    viewer.style.backgroundImage = "";
+    return;
+  }
+
+  viewer.classList.remove("transparent-bg");
+
+  if (settings.bgType === "gradient") {
+    viewer.style.backgroundColor = "";
+    viewer.style.backgroundImage = `linear-gradient(${settings.bgGradientDir === "vertical" ? "to bottom" : "to right"}, ${settings.bgColorFrom}, ${settings.bgColorTo})`;
+  } else {
+    viewer.style.backgroundImage = "";
+    viewer.style.backgroundColor = settings.bgColor;
+  }
+}
+
 function initTransparencyToggle() {
   const toggle = document.getElementById("transparent-toggle") as HTMLInputElement;
-  const viewer = document.getElementById("viewer")!;
+  const bgControls = document.getElementById("bg-controls")!;
 
   const apply = () => {
-    viewer.classList.toggle("transparent-bg", toggle.checked);
-    viewer.style.backgroundColor = toggle.checked ? "transparent" : "";
+    bgControls.classList.toggle("hidden", toggle.checked);
+    applyBgPreview();
   };
 
   toggle.addEventListener("change", apply);
-  // Apply initial state
   apply();
+}
+
+function initBgControls() {
+  const bgTypeRadios = document.querySelectorAll<HTMLInputElement>('input[name="bg-type"]');
+  const solidControls = document.getElementById("bg-solid-controls")!;
+  const gradientControls = document.getElementById("bg-gradient-controls")!;
+
+  const applyType = () => {
+    const val = document.querySelector<HTMLInputElement>('input[name="bg-type"]:checked')?.value;
+    solidControls.classList.toggle("hidden", val !== "solid");
+    gradientControls.classList.toggle("hidden", val !== "gradient");
+    applyBgPreview();
+  };
+
+  bgTypeRadios.forEach((r) => r.addEventListener("change", applyType));
+
+  // Live preview on direction or colour changes
+  document.querySelectorAll<HTMLInputElement>('input[name="bg-gradient-dir"]').forEach((r) =>
+    r.addEventListener("change", applyBgPreview),
+  );
+  document.getElementById("bg-color")!.addEventListener("input", applyBgPreview);
+  document.getElementById("bg-color-from")!.addEventListener("input", applyBgPreview);
+  document.getElementById("bg-color-to")!.addEventListener("input", applyBgPreview);
 }
 
 export function initUI() {
@@ -101,4 +162,5 @@ export function initUI() {
   initFormatToggle();
   initQualitySlider();
   initTransparencyToggle();
+  initBgControls();
 }
