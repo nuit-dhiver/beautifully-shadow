@@ -98,26 +98,30 @@ function initQualitySlider() {
   });
 }
 
-/** Applies the current background settings to the live viewer element. */
+/** Applies the current background settings to the preview div behind the viewer. */
 function applyBgPreview(): void {
+  const bgDiv = document.getElementById("bg-preview")!;
   const viewer = document.getElementById("viewer")!;
   const settings = getCaptureSettings();
 
   if (settings.transparent) {
+    // Show checkerboard on the viewer itself; clear the bg div
     viewer.classList.add("transparent-bg");
-    viewer.style.backgroundColor = "transparent";
-    viewer.style.backgroundImage = "";
+    bgDiv.style.backgroundColor = "";
+    bgDiv.style.backgroundImage = "";
     return;
   }
 
   viewer.classList.remove("transparent-bg");
+  // Keep viewer WebGL background transparent so the bg div shows through
+  viewer.style.backgroundColor = "transparent";
 
   if (settings.bgType === "gradient") {
-    viewer.style.backgroundColor = "";
-    viewer.style.backgroundImage = `linear-gradient(${settings.bgGradientDir === "vertical" ? "to bottom" : "to right"}, ${settings.bgColorFrom}, ${settings.bgColorTo})`;
+    bgDiv.style.backgroundColor = "";
+    bgDiv.style.backgroundImage = `linear-gradient(${settings.bgGradientDir === "vertical" ? "to bottom" : "to right"}, ${settings.bgColorFrom}, ${settings.bgColorTo})`;
   } else {
-    viewer.style.backgroundImage = "";
-    viewer.style.backgroundColor = settings.bgColor;
+    bgDiv.style.backgroundImage = "";
+    bgDiv.style.backgroundColor = settings.bgColor;
   }
 }
 

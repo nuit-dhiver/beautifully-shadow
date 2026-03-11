@@ -1,12 +1,14 @@
 /**
  * Screenshot capture: resize model-viewer to target resolution, capture via toBlob(), download.
  *
- * For solid backgrounds, model-viewer's backgroundColor is set before capture.
- * For gradient backgrounds, the model is captured with a transparent background
- * and then composited onto a canvas with the gradient drawn first.
+ * For non-transparent backgrounds (solid or gradient), the model is captured
+ * with a transparent background then composited onto a canvas with the
+ * background drawn first. This is necessary because model-viewer's toBlob()
+ * only captures the WebGL canvas — CSS backgrounds are not included.
  */
 
 import { getModelViewer, hasModelLoaded } from "./viewer";
+import type { CaptureSettings } from "./ui";
 import { getCaptureSettings } from "./ui";
 
 interface ModelViewerElement extends HTMLElement {
@@ -40,7 +42,7 @@ async function captureScreenshot(): Promise<void> {
   const origBgImage = viewer.style.backgroundImage;
 
   try {
-    const needsGradient = !settings.transparent && settings.bgType === "gradient";
+    const needsBg = !settings.transparent;
 
     // Resize viewer off-screen to target resolution
     viewer.style.position = "fixed";
@@ -49,31 +51,25 @@ async function captureScreenshot(): Promise<void> {
     viewer.style.width = `${settings.width}px`;
     viewer.style.height = `${settings.height}px`;
 
-    if (settings.transparent || needsGradient) {
-      // Transparent capture (gradient composites later; transparent just stays transparent)
-      viewer.style.backgroundColor = "transparent";
-      viewer.style.backgroundImage = "";
-    } else {
-      // Solid colour — model-viewer renders it directly into the WebGL canvas
-      viewer.style.backgroundColor = settings.bgColor;
-      viewer.style.backgroundImage = "";
-    }
+    // Always capture with transparent WebGL background;
+    // backgrounds are composited onto a canvas afterwards
+    viewer.style.backgroundColor = "transparent";
+    viewer.style.backgroundImage = "";
 
     await viewer.updateComplete;
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     const blob = await viewer.toBlob({
-      mimeType: needsGradient ? "image/png" : settings.mimeType,
-      qualityArgument: settings.mimeType === "image/jpeg" && !needsGradient ? settings.quality : undefined,
-      idealAspect: true,
+      mimeType: needsBg ? "image/png" : settings.mimeType,
+      qualityArgument: !needsBg && settings.mimeType === "image/jpeg" ? settings.quality : undefined,
+      idealAspect: false,
     });
 
     const ext = settings.mimeType === "image/jpeg" ? "jpg" : "png";
     const filename = `screenshot-${settings.width}x${settings.height}.${ext}`;
 
-    if (needsGradient) {
-      // Composite: draw gradient first, then the transparent model PNG on top
-      const composited = await compositeGradient(blob, settings.width, settings.height, settings.bgColorFrom, settings.bgColorTo, settings.bgGradientDir, settings.mimeType, settings.quality);
+    if (needsBg) {
+      const composited = await compositeBackground(blob, settings);
       downloadBlob(composited, filename);
     } else {
       downloadBlob(blob, filename);
@@ -94,39 +90,38 @@ async function captureScreenshot(): Promise<void> {
   }
 }
 
-async function compositeGradient(
+async function compositeBackground(
   modelBlob: Blob,
-  width: number,
-  height: number,
-  colorFrom: string,
-  colorTo: string,
-  dir: "horizontal" | "vertical",
-  mimeType: string,
-  quality: number,
+  settings: CaptureSettings,
 ): Promise<Blob> {
+  const { width, height } = settings;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d")!;
 
-  // Draw gradient background — horizontal: left→right, vertical: top→bottom
-  const grad = dir === "vertical"
-    ? ctx.createLinearGradient(0, 0, 0, height)
-    : ctx.createLinearGradient(0, 0, width, 0);
-  grad.addColorStop(0, colorFrom);
-  grad.addColorStop(1, colorTo);
-  ctx.fillStyle = grad;
+  // Draw background
+  if (settings.bgType === "gradient") {
+    const grad = settings.bgGradientDir === "vertical"
+      ? ctx.createLinearGradient(0, 0, 0, height)
+      : ctx.createLinearGradient(0, 0, width, 0);
+    grad.addColorStop(0, settings.bgColorFrom);
+    grad.addColorStop(1, settings.bgColorTo);
+    ctx.fillStyle = grad;
+  } else {
+    ctx.fillStyle = settings.bgColor;
+  }
   ctx.fillRect(0, 0, width, height);
 
-  // Draw model PNG on top
+  // Draw model on top — blob matches the requested dimensions exactly
   const img = await createImageBitmap(modelBlob);
   ctx.drawImage(img, 0, 0, width, height);
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))),
-      mimeType,
-      mimeType === "image/jpeg" ? quality : undefined,
+      settings.mimeType,
+      settings.mimeType === "image/jpeg" ? settings.quality : undefined,
     );
   });
 }
