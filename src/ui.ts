@@ -1,7 +1,22 @@
 /**
  * UI state management: resolution presets, format selection, quality slider, transparency toggle,
- * background type and colour controls.
+ * background type and colour controls, watermark.
  */
+
+export type WatermarkPosition =
+  | "top-left" | "top-center" | "top-right"
+  | "middle-left" | "middle-center" | "middle-right"
+  | "bottom-left" | "bottom-center" | "bottom-right";
+
+export interface WatermarkSettings {
+  enabled: boolean;
+  text: string;
+  position: WatermarkPosition;
+  fontSize: number;
+  color: string;
+  opacity: number;
+  padding: number;
+}
 
 export interface CaptureSettings {
   width: number;
@@ -14,6 +29,7 @@ export interface CaptureSettings {
   bgColor: string;
   bgColorFrom: string;
   bgColorTo: string;
+  watermark: WatermarkSettings;
 }
 
 const presets: Record<string, [number, number]> = {
@@ -35,6 +51,14 @@ export function getCaptureSettings(): CaptureSettings {
   const bgColorFromEl = document.getElementById("bg-color-from") as HTMLInputElement;
   const bgColorToEl = document.getElementById("bg-color-to") as HTMLInputElement;
 
+  const wmToggle = document.getElementById("watermark-toggle") as HTMLInputElement;
+  const wmText = document.getElementById("watermark-text") as HTMLInputElement;
+  const wmPosBtn = document.querySelector<HTMLButtonElement>(".wm-pos-btn.wm-pos-active");
+  const wmSize = document.getElementById("watermark-size") as HTMLInputElement;
+  const wmColor = document.getElementById("watermark-color") as HTMLInputElement;
+  const wmOpacity = document.getElementById("watermark-opacity") as HTMLInputElement;
+  const wmPadding = document.getElementById("watermark-padding") as HTMLInputElement;
+
   return {
     width: Math.max(1, Math.min(8192, parseInt(w.value, 10) || 1920)),
     height: Math.max(1, Math.min(8192, parseInt(h.value, 10) || 1080)),
@@ -46,6 +70,15 @@ export function getCaptureSettings(): CaptureSettings {
     bgColor: bgColorEl.value,
     bgColorFrom: bgColorFromEl.value,
     bgColorTo: bgColorToEl.value,
+    watermark: {
+      enabled: wmToggle.checked,
+      text: wmText.value,
+      position: (wmPosBtn?.dataset.wmPos ?? "bottom-right") as WatermarkPosition,
+      fontSize: Math.max(8, Math.min(512, parseInt(wmSize.value, 10) || 48)),
+      color: wmColor.value,
+      opacity: Math.max(0, Math.min(100, parseInt(wmOpacity.value, 10) || 80)) / 100,
+      padding: Math.max(0, Math.min(512, parseInt(wmPadding.value, 10) || 32)),
+    },
   };
 }
 
@@ -161,10 +194,34 @@ function initBgControls() {
   document.getElementById("bg-color-to")!.addEventListener("input", applyBgPreview);
 }
 
+function initWatermark() {
+  const toggle = document.getElementById("watermark-toggle") as HTMLInputElement;
+  const controls = document.getElementById("watermark-controls")!;
+  const opacitySlider = document.getElementById("watermark-opacity") as HTMLInputElement;
+  const opacityDisplay = document.getElementById("watermark-opacity-value")!;
+  const posBtns = document.querySelectorAll<HTMLButtonElement>(".wm-pos-btn");
+
+  toggle.addEventListener("change", () => {
+    controls.classList.toggle("hidden", !toggle.checked);
+  });
+
+  opacitySlider.addEventListener("input", () => {
+    opacityDisplay.textContent = `${opacitySlider.value}%`;
+  });
+
+  posBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      posBtns.forEach((b) => b.classList.remove("wm-pos-active", "border-blue-500", "bg-blue-500/10"));
+      btn.classList.add("wm-pos-active", "border-blue-500", "bg-blue-500/10");
+    });
+  });
+}
+
 export function initUI() {
   initPresets();
   initFormatToggle();
   initQualitySlider();
   initTransparencyToggle();
   initBgControls();
+  initWatermark();
 }

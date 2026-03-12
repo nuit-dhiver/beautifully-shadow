@@ -207,6 +207,74 @@
             </div>
           </section>
 
+          <!-- Watermark section -->
+          <section class="p-4 border-b border-neutral-800">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">Watermark</h2>
+            <label class="flex items-center justify-between cursor-pointer">
+              <span class="text-sm">Enable Watermark</span>
+              <div class="relative">
+                <input id="watermark-toggle" type="checkbox" class="sr-only peer" />
+                <div class="w-9 h-5 bg-neutral-700 rounded-full peer-checked:bg-blue-600 transition-colors"></div>
+                <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-4 transition-transform"></div>
+              </div>
+            </label>
+
+            <div id="watermark-controls" class="hidden mt-3 flex flex-col gap-3">
+              <!-- Text -->
+              <div>
+                <label class="text-xs text-neutral-500 mb-1 block">Text</label>
+                <input id="watermark-text" type="text" placeholder="© Your Name" maxlength="200"
+                  class="w-full px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-neutral-600" />
+              </div>
+
+              <!-- Position grid -->
+              <div>
+                <label class="text-xs text-neutral-500 mb-1.5 block">Position</label>
+                <div class="grid grid-cols-3 gap-1 w-24">
+                  <button data-wm-pos="top-left"      class="wm-pos-btn aspect-square rounded bg-neutral-800 border border-neutral-700 hover:border-blue-500 transition-colors flex items-center justify-center" title="Top Left">     <span class="w-1.5 h-1.5 rounded-full bg-neutral-400"></span></button>
+                  <button data-wm-pos="top-center"    class="wm-pos-btn aspect-square rounded bg-neutral-800 border border-neutral-700 hover:border-blue-500 transition-colors flex items-center justify-center" title="Top Center">   <span class="w-1.5 h-1.5 rounded-full bg-neutral-400"></span></button>
+                  <button data-wm-pos="top-right"     class="wm-pos-btn aspect-square rounded bg-neutral-800 border border-neutral-700 hover:border-blue-500 transition-colors flex items-center justify-center" title="Top Right">    <span class="w-1.5 h-1.5 rounded-full bg-neutral-400"></span></button>
+                  <button data-wm-pos="middle-left"   class="wm-pos-btn aspect-square rounded bg-neutral-800 border border-neutral-700 hover:border-blue-500 transition-colors flex items-center justify-center" title="Middle Left">  <span class="w-1.5 h-1.5 rounded-full bg-neutral-400"></span></button>
+                  <button data-wm-pos="middle-center" class="wm-pos-btn aspect-square rounded bg-neutral-800 border border-neutral-700 hover:border-blue-500 transition-colors flex items-center justify-center" title="Center">       <span class="w-1.5 h-1.5 rounded-full bg-neutral-400"></span></button>
+                  <button data-wm-pos="middle-right"  class="wm-pos-btn aspect-square rounded bg-neutral-800 border border-neutral-700 hover:border-blue-500 transition-colors flex items-center justify-center" title="Middle Right"> <span class="w-1.5 h-1.5 rounded-full bg-neutral-400"></span></button>
+                  <button data-wm-pos="bottom-left"   class="wm-pos-btn aspect-square rounded bg-neutral-800 border border-neutral-700 hover:border-blue-500 transition-colors flex items-center justify-center" title="Bottom Left">  <span class="w-1.5 h-1.5 rounded-full bg-neutral-400"></span></button>
+                  <button data-wm-pos="bottom-center" class="wm-pos-btn aspect-square rounded bg-neutral-800 border border-neutral-700 hover:border-blue-500 transition-colors flex items-center justify-center" title="Bottom Center"><span class="w-1.5 h-1.5 rounded-full bg-neutral-400"></span></button>
+                  <button data-wm-pos="bottom-right"  class="wm-pos-btn aspect-square rounded bg-neutral-800 border border-neutral-700 hover:border-blue-500 transition-colors flex items-center justify-center wm-pos-active" title="Bottom Right"><span class="w-1.5 h-1.5 rounded-full bg-neutral-400"></span></button>
+                </div>
+              </div>
+
+              <!-- Font size & Colour row -->
+              <div class="flex gap-3 items-end">
+                <div class="flex-1">
+                  <label class="text-xs text-neutral-500 mb-1 block" for="watermark-size">Size (px)</label>
+                  <input id="watermark-size" type="number" value="48" min="8" max="512"
+                    class="w-full px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div class="flex items-center justify-between mb-0.5">
+                  <label for="watermark-color" class="text-xs text-neutral-500 mr-2">Colour</label>
+                  <input id="watermark-color" type="color" value="#ffffff"
+                    class="w-8 h-8 rounded cursor-pointer bg-transparent border border-neutral-700" />
+                </div>
+              </div>
+
+              <!-- Opacity -->
+              <div>
+                <label class="flex items-center justify-between text-xs mb-1">
+                  <span class="text-neutral-500">Opacity</span>
+                  <span id="watermark-opacity-value" class="text-neutral-300 tabular-nums">80%</span>
+                </label>
+                <input id="watermark-opacity" type="range" min="0" max="100" value="80" class="w-full accent-blue-500" />
+              </div>
+
+              <!-- Padding -->
+              <div class="flex items-center justify-between">
+                <label for="watermark-padding" class="text-xs text-neutral-500">Padding (px)</label>
+                <input id="watermark-padding" type="number" value="32" min="0" max="512"
+                  class="w-20 px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              </div>
+            </div>
+          </section>
+
           <!-- Download -->
           <section class="p-4 mt-auto">
             <button id="download-btn" disabled class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-600 disabled:cursor-not-allowed rounded-lg text-sm font-semibold transition-colors">
