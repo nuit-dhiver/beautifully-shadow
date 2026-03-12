@@ -5,6 +5,9 @@
  * with a transparent background then composited onto a canvas with the
  * background drawn first. This is necessary because model-viewer's toBlob()
  * only captures the WebGL canvas — CSS backgrounds are not included.
+ *
+ * When a watermark is enabled, the pipeline always goes through the canvas
+ * compositor regardless of whether a background is set.
  */
 
 import { getModelViewer, hasModelLoaded } from "./viewer";
@@ -43,6 +46,8 @@ async function captureScreenshot(): Promise<void> {
 
   try {
     const needsBg = !settings.transparent;
+    const needsWatermark = settings.watermark.enabled && settings.watermark.text.trim().length > 0;
+    const needsCanvas = needsBg || needsWatermark;
 
     // Resize viewer off-screen to target resolution
     viewer.style.position = "fixed";
@@ -60,16 +65,16 @@ async function captureScreenshot(): Promise<void> {
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     const blob = await viewer.toBlob({
-      mimeType: needsBg ? "image/png" : settings.mimeType,
-      qualityArgument: !needsBg && settings.mimeType === "image/jpeg" ? settings.quality : undefined,
+      mimeType: needsCanvas ? "image/png" : settings.mimeType,
+      qualityArgument: !needsCanvas && settings.mimeType === "image/jpeg" ? settings.quality : undefined,
       idealAspect: false,
     });
 
     const ext = settings.mimeType === "image/jpeg" ? "jpg" : "png";
     const filename = `screenshot-${settings.width}x${settings.height}.${ext}`;
 
-    if (needsBg) {
-      const composited = await compositeBackground(blob, settings);
+    if (needsCanvas) {
+      const composited = await compositeCanvas(blob, settings);
       downloadBlob(composited, filename);
     } else {
       downloadBlob(blob, filename);
@@ -90,7 +95,7 @@ async function captureScreenshot(): Promise<void> {
   }
 }
 
-async function compositeBackground(
+async function compositeCanvas(
   modelBlob: Blob,
   settings: CaptureSettings,
 ): Promise<Blob> {
@@ -100,22 +105,30 @@ async function compositeBackground(
   canvas.height = height;
   const ctx = canvas.getContext("2d")!;
 
-  // Draw background
-  if (settings.bgType === "gradient") {
-    const grad = settings.bgGradientDir === "vertical"
-      ? ctx.createLinearGradient(0, 0, 0, height)
-      : ctx.createLinearGradient(0, 0, width, 0);
-    grad.addColorStop(0, settings.bgColorFrom);
-    grad.addColorStop(1, settings.bgColorTo);
-    ctx.fillStyle = grad;
-  } else {
-    ctx.fillStyle = settings.bgColor;
+  // Draw background (skip for transparent mode)
+  if (!settings.transparent) {
+    if (settings.bgType === "gradient") {
+      const grad = settings.bgGradientDir === "vertical"
+        ? ctx.createLinearGradient(0, 0, 0, height)
+        : ctx.createLinearGradient(0, 0, width, 0);
+      grad.addColorStop(0, settings.bgColorFrom);
+      grad.addColorStop(1, settings.bgColorTo);
+      ctx.fillStyle = grad;
+    } else {
+      ctx.fillStyle = settings.bgColor;
+    }
+    ctx.fillRect(0, 0, width, height);
   }
-  ctx.fillRect(0, 0, width, height);
 
   // Draw model on top — blob matches the requested dimensions exactly
   const img = await createImageBitmap(modelBlob);
   ctx.drawImage(img, 0, 0, width, height);
+
+  // Draw watermark on top of everything
+  const wm = settings.watermark;
+  if (wm.enabled && wm.text.trim().length > 0) {
+    drawWatermark(ctx, width, height, wm);
+  }
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -124,6 +137,42 @@ async function compositeBackground(
       settings.mimeType === "image/jpeg" ? settings.quality : undefined,
     );
   });
+}
+
+function drawWatermark(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  wm: CaptureSettings["watermark"],
+): void {
+  const [vPos, hPos] = wm.position.split("-") as [string, string];
+
+  ctx.save();
+  ctx.globalAlpha = wm.opacity;
+  ctx.font = `bold ${wm.fontSize}px sans-serif`;
+  ctx.fillStyle = wm.color;
+
+  if (hPos === "left") {
+    ctx.textAlign = "left";
+  } else if (hPos === "right") {
+    ctx.textAlign = "right";
+  } else {
+    ctx.textAlign = "center";
+  }
+
+  if (vPos === "top") {
+    ctx.textBaseline = "top";
+  } else if (vPos === "bottom") {
+    ctx.textBaseline = "bottom";
+  } else {
+    ctx.textBaseline = "middle";
+  }
+
+  const x = hPos === "left" ? wm.padding : hPos === "right" ? width - wm.padding : width / 2;
+  const y = vPos === "top" ? wm.padding : vPos === "bottom" ? height - wm.padding : height / 2;
+
+  ctx.fillText(wm.text, x, y);
+  ctx.restore();
 }
 
 function downloadBlob(blob: Blob, filename: string) {
