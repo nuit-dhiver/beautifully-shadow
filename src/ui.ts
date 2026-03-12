@@ -194,6 +194,38 @@ function initBgControls() {
   document.getElementById("bg-color-to")!.addEventListener("input", applyBgPreview);
 }
 
+function updateWatermarkPreview(): void {
+  const preview = document.getElementById("watermark-preview")!;
+  const span = document.getElementById("watermark-preview-text") as HTMLElement;
+  const viewer = document.getElementById("viewer")!;
+  const settings = getCaptureSettings();
+  const wm = settings.watermark;
+
+  const text = wm.text.trim();
+  if (!wm.enabled || !text) {
+    preview.style.display = "none";
+    return;
+  }
+
+  // Scale font size and padding relative to viewer width vs capture width
+  const viewerWidth = viewer.clientWidth || settings.width;
+  const scale = viewerWidth / settings.width;
+  const previewFontSize = Math.max(6, wm.fontSize * scale);
+  const previewPadding = wm.padding * scale;
+
+  // Position: map to flexbox alignment
+  const [vPos, hPos] = wm.position.split("-") as [string, string];
+  preview.style.alignItems = vPos === "top" ? "flex-start" : vPos === "bottom" ? "flex-end" : "center";
+  preview.style.justifyContent = hPos === "left" ? "flex-start" : hPos === "right" ? "flex-end" : "center";
+  preview.style.padding = `${previewPadding}px`;
+  preview.style.display = "flex";
+
+  span.textContent = text;
+  span.style.fontSize = `${previewFontSize}px`;
+  span.style.color = wm.color;
+  span.style.opacity = String(wm.opacity);
+}
+
 function initWatermark() {
   const toggle = document.getElementById("watermark-toggle") as HTMLInputElement;
   const controls = document.getElementById("watermark-controls")!;
@@ -203,18 +235,31 @@ function initWatermark() {
 
   toggle.addEventListener("change", () => {
     controls.classList.toggle("hidden", !toggle.checked);
+    updateWatermarkPreview();
   });
 
   opacitySlider.addEventListener("input", () => {
     opacityDisplay.textContent = `${opacitySlider.value}%`;
+    updateWatermarkPreview();
   });
 
   posBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
       posBtns.forEach((b) => b.classList.remove("wm-pos-active", "border-blue-500", "bg-blue-500/10"));
       btn.classList.add("wm-pos-active", "border-blue-500", "bg-blue-500/10");
+      updateWatermarkPreview();
     });
   });
+
+  // Live update on any watermark field change
+  document.getElementById("watermark-text")!.addEventListener("input", updateWatermarkPreview);
+  document.getElementById("watermark-size")!.addEventListener("input", updateWatermarkPreview);
+  document.getElementById("watermark-color")!.addEventListener("input", updateWatermarkPreview);
+  document.getElementById("watermark-padding")!.addEventListener("input", updateWatermarkPreview);
+
+  // Re-scale preview when capture resolution changes
+  document.getElementById("width-input")!.addEventListener("input", updateWatermarkPreview);
+  document.getElementById("height-input")!.addEventListener("input", updateWatermarkPreview);
 }
 
 export function initUI() {

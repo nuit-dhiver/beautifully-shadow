@@ -51,6 +51,11 @@
             interaction-prompt="none"
             style="background-color: transparent;"
           ></model-viewer>
+
+          <!-- Watermark preview overlay (pointer-events:none so camera controls work through it) -->
+          <div id="watermark-preview" class="absolute inset-0 pointer-events-none overflow-hidden" style="z-index: 5; display: none;">
+            <span id="watermark-preview-text" style="font-family: sans-serif; font-weight: bold; line-height: 1; white-space: nowrap;"></span>
+          </div>
         </main>
 
         <!-- Sidebar -->
